@@ -47,6 +47,24 @@ type VerifySafeguardRequest struct {
 type SafeguardActionRequest struct {
 	Reason string `json:"reason" binding:"required,min=3,max=1000"`
 }
+type SuspendSafeguardRequest struct {
+	Reason             string    `json:"reason" binding:"required,min=3,max=1000"`
+	AlternativeMeasure string    `json:"alternative_measure" binding:"required,min=3,max=2000"`
+	PlannedRestoreAt   time.Time `json:"planned_restore_at" binding:"required"`
+}
+func (r *SuspendSafeguardRequest) Normalize() {
+	r.Reason = strings.TrimSpace(r.Reason)
+	r.AlternativeMeasure = strings.TrimSpace(r.AlternativeMeasure)
+	r.PlannedRestoreAt = r.PlannedRestoreAt.UTC()
+}
+type ResumeSafeguardRequest struct {
+	VerifiedAt   time.Time `json:"verified_at" binding:"required"`
+	EvidenceNote string    `json:"evidence_note" binding:"required,min=3,max=4000"`
+}
+func (r *ResumeSafeguardRequest) Normalize() {
+	r.VerifiedAt = r.VerifiedAt.UTC()
+	r.EvidenceNote = strings.TrimSpace(r.EvidenceNote)
+}
 type SafeguardQuery struct {
 	ScenarioID     uint
 	Type           string
@@ -69,6 +87,11 @@ type SafeguardResponse struct {
 	VerificationExpired bool       `json:"verification_expired"`
 	LifecycleState      string     `json:"lifecycle_state"`
 	EvidenceNote        string     `json:"evidence_note"`
+	SuspendedAt         *time.Time `json:"suspended_at,omitempty"`
+	SuspendedBy         *uint      `json:"suspended_by,omitempty"`
+	SuspensionReason    string     `json:"suspension_reason,omitempty"`
+	AlternativeMeasure  string     `json:"alternative_measure,omitempty"`
+	PlannedRestoreAt    *time.Time `json:"planned_restore_at,omitempty"`
 	LastVerificationBy  *uint      `json:"last_verification_by,omitempty"`
 	CreatedAt           time.Time  `json:"created_at"`
 	UpdatedAt           time.Time  `json:"updated_at"`
@@ -88,6 +111,9 @@ func NewSafeguardResponse(s model.Safeguard, now time.Time) SafeguardResponse {
 		TestIntervalDays: s.TestIntervalDays, LastVerifiedAt: s.LastVerifiedAt,
 		VerificationExpires: expires, VerificationExpired: expired,
 		LifecycleState: s.LifecycleState, EvidenceNote: s.EvidenceNote,
+		SuspendedAt: s.SuspendedAt, SuspendedBy: s.SuspendedBy,
+		SuspensionReason: s.SuspensionReason, AlternativeMeasure: s.AlternativeMeasure,
+		PlannedRestoreAt: s.PlannedRestoreAt,
 		LastVerificationBy: s.LastVerificationBy, CreatedAt: s.CreatedAt, UpdatedAt: s.UpdatedAt,
 	}
 }

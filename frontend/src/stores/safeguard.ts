@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import * as safeguardApi from '../api/safeguard'
-import type { Safeguard, SafeguardInput } from '../types/safeguard'
+import type { Safeguard, SafeguardInput, SafeguardResumeInput, SafeguardSuspendInput } from '../types/safeguard'
 
 export const useSafeguardStore = defineStore('safeguards', () => {
   const items = ref<Safeguard[]>([])
@@ -14,5 +14,7 @@ export const useSafeguardStore = defineStore('safeguards', () => {
   async function verify(id: number, note: string) { const item = await safeguardApi.verifySafeguard(id, note); await load(); return item }
   async function invalidate(id: number, reason: string) { const item = await safeguardApi.invalidateSafeguard(id, reason); await load(); return item }
   async function restore(id: number, reason: string) { const item = await safeguardApi.restoreSafeguard(id, reason); await load(); return item }
-  return { items, selectedId, selected, loading, load, create, update, verify, invalidate, restore }
+  async function suspend(id: number, input: SafeguardSuspendInput) { const item = await safeguardApi.suspendSafeguard(id, input); await load(); return item }
+  async function resume(id: number, input: SafeguardResumeInput) { const item = await safeguardApi.resumeSafeguard(id, input); await load(); return item }
+  return { items, selectedId, selected, loading, load, create, update, verify, invalidate, restore, suspend, resume }
 })

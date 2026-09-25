@@ -169,6 +169,8 @@ func seedDomain(tx *gorm.DB, users map[string]model.User) error {
 	}
 	validVerification := now.AddDate(0, 0, -20)
 	expiredVerification := now.AddDate(0, 0, -500)
+	suspendedSince := now.Add(-26 * time.Hour)
+	plannedRestore := now.AddDate(0, 0, 7)
 	safeguards := []model.Safeguard{
 		{
 			Name: "High temperature SIS trip", SafeguardType: "interlock",
@@ -197,6 +199,17 @@ func seedDomain(tx *gorm.DB, users map[string]model.User) error {
 			Effectiveness: 0.7, TestIntervalDays: 180, LastVerifiedAt: &validVerification,
 			LifecycleState: "active", EvidenceNote: "Inspection record CV-882",
 			LastVerificationBy: &reviewer.ID, CreatedAt: now, UpdatedAt: now,
+		},
+		{
+			Name: "Reactor level operator rounds", SafeguardType: "procedural",
+			TargetScenarioID: scenarios[0].ID, IndependenceKey: "PROC-R101-LVL",
+			Effectiveness: 0.4, TestIntervalDays: 90, LastVerifiedAt: &validVerification,
+			LifecycleState: "suspended", EvidenceNote: "Suspended for on-site disassembly inspection",
+			SuspendedAt: &suspendedSince, SuspendedBy: &engineer.ID,
+			SuspensionReason:   "Level gauge disassembled for on-site inspection; measure temporarily out of service",
+			AlternativeMeasure: "Manual level comparison twice per shift with signed logbook entries until reinstatement",
+			PlannedRestoreAt:   &plannedRestore,
+			CreatedAt:          now, UpdatedAt: now,
 		},
 	}
 	if err := tx.Create(&safeguards).Error; err != nil {

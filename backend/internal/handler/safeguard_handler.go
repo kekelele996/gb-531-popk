@@ -74,6 +74,32 @@ func (h *SafeguardHandler) Verify(c *gin.Context) {
 }
 func (h *SafeguardHandler) Invalidate(c *gin.Context) { h.action(c, h.service.Invalidate) }
 func (h *SafeguardHandler) Restore(c *gin.Context)    { h.action(c, h.service.Restore) }
+func (h *SafeguardHandler) Suspend(c *gin.Context) {
+	id, err := util.ParseUintParam(c, "id")
+	if err != nil {
+		util.Fail(c, err)
+		return
+	}
+	var request dto.SuspendSafeguardRequest
+	if !bindJSON(c, &request) {
+		return
+	}
+	result, err := h.service.Suspend(c.Request.Context(), id, request, mustActor(c))
+	respond(c, http.StatusOK, result, err)
+}
+func (h *SafeguardHandler) Resume(c *gin.Context) {
+	id, err := util.ParseUintParam(c, "id")
+	if err != nil {
+		util.Fail(c, err)
+		return
+	}
+	var request dto.ResumeSafeguardRequest
+	if !bindJSON(c, &request) {
+		return
+	}
+	result, err := h.service.Resume(c.Request.Context(), id, request, mustActor(c))
+	respond(c, http.StatusOK, result, err)
+}
 func (h *SafeguardHandler) action(c *gin.Context, operation func(
 	context.Context, uint, dto.SafeguardActionRequest, util.Actor,
 ) (dto.SafeguardResponse, error)) {

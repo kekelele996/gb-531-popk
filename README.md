@@ -33,7 +33,7 @@ docker compose up -d --build
 
 - 工艺节点：维护节点编号、装置、介质、设计压力/温度、责任团队与启停状态，并汇总偏差数量和风险。
 - 偏差分析：使用 `no/more/less/reverse/other` 引导词记录参数、原因、后果和 5×5 风险矩阵，按受约束状态机完成多人复核。
-- 保护层台账：记录保护类型、目标场景、独立性键、有效性、测试间隔、最近验证时间与证据说明；过期或重复保护层不会被错误重复计分。
+- 保护层台账：记录保护类型、目标场景、独立性键、有效性、测试间隔、最近验证时间与证据说明；过期或重复保护层不会被错误重复计分。支持现场拆检临时停用：停用需登记暂停原因、替代办法与计划恢复日期，暂停期间新评估不计入该层；复核员补录验证时间与证据后提前恢复，未提供证据则保持暂停。
 - 覆盖推演：冻结输入，构建原因到后果路径，找出未保护路径，按独立性键去重并保存评分步骤、输入哈希与算法版本。
 - 审计中心：按实体、操作者、request ID 和时间筛选写操作；展示变更前后快照及算法运行摘要。
 - 横切能力：JWT、RBAC、登录与算法限流、request ID、统一业务错误、panic recovery、事务状态迁移、幂等评估与结构化日志。
@@ -47,8 +47,18 @@ docker compose up -d --build
 1. 从冻结的 `ProcessNode -> DeviationScenario -> cause/consequence -> Safeguard` 输入构造有向路径，并以稳定字段顺序生成快照与输入哈希。
 2. 将场景原因连接到后果；无有效保护层的连接记录为未覆盖路径。
 3. 同一路径内按 `independence_key` 去重。同键措施只采用确定性排序后的一个有效贡献，其余项进入去重说明。
-4. 只有生命周期有效且 `last_verified_at + test_interval_days` 未过期的保护层参与计算；每层按 `effectiveness` 贡献覆盖度。
-5. 保存覆盖分、评估前后风险、未覆盖路径、评分步骤、算法版本和不可变输入快照。重放使用原始快照，因此相同输入产生相同结果。
+4. 只有生命周期有效且 `last_verified_at + test_interval_days` 未过期的保护层参与计算；每层按 `effectiveness` 贡献覆盖度。`suspended`（暂停）保护层同样不参与，并会在评分步骤中留下排除原因。
+5. 保存覆盖分、评估前后风险、未覆盖路径、评分步骤、算法版本和不可变输入快照。重放使用原始快照，因此相同输入产生相同结果；保护层后续暂停或恢复都不会改变已生成评估的评分与快照。
+
+### 保护层暂停与恢复
+
+```text
+pending/active/expired --suspend--> suspended --resume--> active
+```
+
+- `POST /safeguards/:id/suspend`：`process_engineer` 或 `admin` 登记暂停原因、替代办法和计划恢复日期（须为未来时间），台账直接展示这三项与当前状态。
+- `POST /safeguards/:id/resume`：仅 `safety_reviewer` 或 `admin`；必须补录本次验证时间与证据，系统按该验证时间重新计算有效期并纳入后续评估。缺少证据返回 `400/422`，保护层保持 `suspended` 不变。
+- 暂停与恢复均写入审计日志，包含操作者、原因与前后快照。
 
 算法不会读取实时仪表、联锁组态、阀位、报警、人员位置或设备通信，也不验证真实独立保护层是否满足法规。输出必须由持证工艺安全人员结合现场证据复核。
 
@@ -124,6 +134,8 @@ queued -> running -> completed -> confirmed
 | `POST` | `/api/v1/safeguards/:id/verify` | 更新验证证据与时间 |
 | `POST` | `/api/v1/safeguards/:id/invalidate` | 标记失效 |
 | `POST` | `/api/v1/safeguards/:id/restore` | 恢复有效状态 |
+| `POST` | `/api/v1/safeguards/:id/suspend` | 临时停用（原因、替代办法、计划恢复日期） |
+| `POST` | `/api/v1/safeguards/:id/resume` | 复核员补录验证时间与证据后恢复 |
 | `GET/POST` | `/api/v1/coverage-evaluations` | 评估列表与幂等运行 |
 | `GET` | `/api/v1/coverage-evaluations/:id` | 读取不可变评估 |
 | `POST` | `/api/v1/coverage-evaluations/:id/replay` | 从快照确定性重放并比较 |

@@ -1,6 +1,6 @@
 import { api, json, query } from './client'
 import { normalizePage, type PageData } from '../types/common'
-import type { Safeguard, SafeguardInput } from '../types/safeguard'
+import type { Safeguard, SafeguardInput, SafeguardResumeInput, SafeguardSuspendInput } from '../types/safeguard'
 
 export async function listSafeguards(scenarioId?: number): Promise<PageData<Safeguard>> {
   return normalizePage(await api<PageData<Safeguard> | Safeguard[]>(`/safeguards${query({ scenario_id: scenarioId })}`))
@@ -11,3 +11,5 @@ export const updateSafeguard = (id: number, input: SafeguardInput) => api<Safegu
 export const verifySafeguard = (id: number, evidence_note: string) => api<Safeguard>(`/safeguards/${id}/verify`, json('POST', { verified_at: new Date().toISOString(), evidence_note }))
 export const invalidateSafeguard = (id: number, reason: string) => api<Safeguard>(`/safeguards/${id}/invalidate`, json('POST', { reason }))
 export const restoreSafeguard = (id: number, reason: string) => api<Safeguard>(`/safeguards/${id}/restore`, json('POST', { reason }))
+export const suspendSafeguard = (id: number, input: SafeguardSuspendInput) => api<Safeguard>(`/safeguards/${id}/suspend`, json('POST', input))
+export const resumeSafeguard = (id: number, input: SafeguardResumeInput) => api<Safeguard>(`/safeguards/${id}/resume`, json('POST', input))

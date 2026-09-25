@@ -18,4 +18,6 @@ func RegisterSafeguardRoutes(api *gin.RouterGroup, h *handler.SafeguardHandler) 
 	group.POST("/:id/verify", write, h.Verify)
 	group.POST("/:id/invalidate", write, h.Invalidate)
 	group.POST("/:id/restore", write, h.Restore)
+	group.POST("/:id/suspend", write, h.Suspend)
+	group.POST("/:id/resume", middleware.RequirePermission(constants.PermissionSafeguardResume), h.Resume)
 }

@@ -14,6 +14,11 @@ type Safeguard struct {
 	LastVerifiedAt     *time.Time        `json:"last_verified_at,omitempty"`
 	LifecycleState     string            `gorm:"size:24;not null;index" json:"lifecycle_state"`
 	EvidenceNote       string            `gorm:"type:text;not null" json:"evidence_note"`
+	SuspendedAt        *time.Time        `json:"suspended_at,omitempty"`
+	SuspendedBy        *uint             `json:"suspended_by,omitempty"`
+	SuspensionReason   string            `gorm:"type:text;not null;default:''" json:"suspension_reason,omitempty"`
+	AlternativeMeasure string            `gorm:"type:text;not null;default:''" json:"alternative_measure,omitempty"`
+	PlannedRestoreAt   *time.Time        `json:"planned_restore_at,omitempty"`
 	CreatedAt          time.Time         `gorm:"not null" json:"created_at"`
 	UpdatedAt          time.Time         `gorm:"not null" json:"updated_at"`
 	LastVerificationBy *uint             `json:"last_verification_by,omitempty"`
