@@ -44,6 +44,7 @@ type SnapshotSafeguard struct {
 	LastVerifiedAt   *time.Time `json:"last_verified_at"`
 	LifecycleState   string     `json:"lifecycle_state"`
 	EvidenceNote     string     `json:"evidence_note"`
+	SuspensionReason string     `json:"suspension_reason,omitempty"`
 }
 type Graph struct {
 	Nodes []GraphNode `json:"nodes"`
@@ -101,6 +102,7 @@ func NewSnapshot(node model.ProcessNode, scenario model.DeviationScenario, safeg
 			IndependenceKey: item.IndependenceKey, Effectiveness: item.Effectiveness,
 			TestIntervalDays: item.TestIntervalDays, LastVerifiedAt: verified,
 			LifecycleState: item.LifecycleState, EvidenceNote: item.EvidenceNote,
+			SuspensionReason: item.SuspensionReason,
 		})
 	}
 	return snapshot

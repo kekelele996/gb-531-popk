@@ -19,6 +19,8 @@ type SafeguardService interface {
 	Verify(context.Context, uint, dto.VerifySafeguardRequest, util.Actor) (dto.SafeguardResponse, error)
 	Invalidate(context.Context, uint, dto.SafeguardActionRequest, util.Actor) (dto.SafeguardResponse, error)
 	Restore(context.Context, uint, dto.SafeguardActionRequest, util.Actor) (dto.SafeguardResponse, error)
+	Suspend(context.Context, uint, dto.SuspendSafeguardRequest, util.Actor) (dto.SafeguardResponse, error)
+	Resume(context.Context, uint, dto.ResumeSafeguardRequest, util.Actor) (dto.SafeguardResponse, error)
 }
 type safeguardService struct {
 	safeguards repository.SafeguardRepository
@@ -226,6 +228,94 @@ func (s *safeguardService) Restore(
 		target = "active"
 	}
 	return s.changeLifecycle(ctx, id, []string{"invalid"}, target, "restore", request.Reason, actor)
+}
+func (s *safeguardService) Suspend(
+	ctx context.Context,
+	id uint,
+	request dto.SuspendSafeguardRequest,
+	actor util.Actor,
+) (dto.SafeguardResponse, error) {
+	request.Normalize()
+	before, err := s.safeguards.GetByID(ctx, id)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return dto.SafeguardResponse{}, util.NotFound("safeguard")
+		}
+		return dto.SafeguardResponse{}, util.WrapError(http.StatusInternalServerError, util.CodeInternal, "unable to load safeguard", err)
+	}
+	now := s.now()
+	if !request.PlannedRestoreAt.After(now) {
+		return dto.SafeguardResponse{}, util.NewError(http.StatusUnprocessableEntity, util.CodeValidation, "planned_restore_at must be in the future")
+	}
+	evidence := fmt.Sprintf("%s\n[suspend] %s", before.EvidenceNote, request.Reason)
+	updates := map[string]any{
+		"suspension_reason": request.Reason, "compensating_measures": request.CompensatingMeasures,
+		"planned_restore_at": request.PlannedRestoreAt, "suspended_at": now, "suspended_by": actor.UserID,
+		"resumed_at": nil, "resumed_by": nil,
+		"evidence_note": evidence,
+	}
+	changed, err := s.safeguards.SetLifecycle(ctx, id, []string{"pending", "active", "expired"}, "suspended", updates)
+	if err != nil {
+		return dto.SafeguardResponse{}, util.WrapError(http.StatusInternalServerError, util.CodeInternal, "unable to suspend safeguard", err)
+	}
+	if !changed {
+		return dto.SafeguardResponse{}, util.NewError(http.StatusConflict, util.CodeStateTransition, "safeguard cannot be suspended from its current lifecycle state")
+	}
+	after, err := s.safeguards.GetByID(ctx, id)
+	if err != nil {
+		return dto.SafeguardResponse{}, util.WrapError(http.StatusInternalServerError, util.CodeInternal, "unable to reload safeguard", err)
+	}
+	summary := fmt.Sprintf("%s | compensating: %s | planned restore: %s",
+		request.Reason, request.CompensatingMeasures, request.PlannedRestoreAt.Format(time.RFC3339))
+	if err := s.recordAudit(ctx, actor, id, "suspend", before, after, summary); err != nil {
+		return dto.SafeguardResponse{}, err
+	}
+	return dto.NewSafeguardResponse(after, s.now()), nil
+}
+func (s *safeguardService) Resume(
+	ctx context.Context,
+	id uint,
+	request dto.ResumeSafeguardRequest,
+	actor util.Actor,
+) (dto.SafeguardResponse, error) {
+	request.Normalize()
+	before, err := s.safeguards.GetByID(ctx, id)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return dto.SafeguardResponse{}, util.NotFound("safeguard")
+		}
+		return dto.SafeguardResponse{}, util.WrapError(http.StatusInternalServerError, util.CodeInternal, "unable to load safeguard", err)
+	}
+	if request.EvidenceNote == "" {
+		return dto.SafeguardResponse{}, util.NewError(http.StatusUnprocessableEntity, util.CodeValidation, "verification evidence is required to resume a suspended safeguard")
+	}
+	now := s.now()
+	if request.VerifiedAt.After(now.Add(5 * time.Minute)) {
+		return dto.SafeguardResponse{}, util.NewError(http.StatusUnprocessableEntity, util.CodeValidation, "verified_at cannot be in the future")
+	}
+	if now.After(request.VerifiedAt.AddDate(0, 0, before.TestIntervalDays)) {
+		return dto.SafeguardResponse{}, util.NewError(http.StatusUnprocessableEntity, util.CodeValidation, "verification is already expired")
+	}
+	updates := map[string]any{
+		"last_verified_at": request.VerifiedAt, "last_verification_by": actor.UserID,
+		"evidence_note": request.EvidenceNote,
+		"resumed_at":    now, "resumed_by": actor.UserID,
+	}
+	changed, err := s.safeguards.SetLifecycle(ctx, id, []string{"suspended"}, "active", updates)
+	if err != nil {
+		return dto.SafeguardResponse{}, util.WrapError(http.StatusInternalServerError, util.CodeInternal, "unable to resume safeguard", err)
+	}
+	if !changed {
+		return dto.SafeguardResponse{}, util.NewError(http.StatusConflict, util.CodeStateTransition, "only a suspended safeguard can be resumed")
+	}
+	after, err := s.safeguards.GetByID(ctx, id)
+	if err != nil {
+		return dto.SafeguardResponse{}, util.WrapError(http.StatusInternalServerError, util.CodeInternal, "unable to reload safeguard", err)
+	}
+	if err := s.recordAudit(ctx, actor, id, "resume", before, after, request.EvidenceNote); err != nil {
+		return dto.SafeguardResponse{}, err
+	}
+	return dto.NewSafeguardResponse(after, s.now()), nil
 }
 func (s *safeguardService) changeLifecycle(
 	ctx context.Context,

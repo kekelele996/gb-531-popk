@@ -59,6 +59,12 @@ func ResolveIndependence(safeguards []SnapshotSafeguard, referenceTime time.Time
 	return result
 }
 func ineligibleReason(safeguard SnapshotSafeguard, referenceTime time.Time) string {
+	if safeguard.LifecycleState == "suspended" {
+		if reason := strings.TrimSpace(safeguard.SuspensionReason); reason != "" {
+			return fmt.Sprintf("safeguard is suspended: %s", reason)
+		}
+		return "safeguard is suspended"
+	}
 	if safeguard.LifecycleState != "active" {
 		return fmt.Sprintf("lifecycle state %q is not active", safeguard.LifecycleState)
 	}

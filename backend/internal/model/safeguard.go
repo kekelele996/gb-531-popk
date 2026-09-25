@@ -3,20 +3,27 @@ package model
 import "time"
 
 type Safeguard struct {
-	ID                 uint              `gorm:"primaryKey" json:"id"`
-	Name               string            `gorm:"size:180;not null" json:"name"`
-	SafeguardType      string            `gorm:"size:40;not null;index" json:"safeguard_type"`
-	TargetScenarioID   uint              `gorm:"not null;index:idx_safeguard_target_independence" json:"target_scenario_id"`
-	TargetScenario     DeviationScenario `gorm:"foreignKey:TargetScenarioID" json:"target_scenario,omitempty"`
-	IndependenceKey    string            `gorm:"size:100;not null;index:idx_safeguard_target_independence" json:"independence_key"`
-	Effectiveness      float64           `gorm:"not null" json:"effectiveness"`
-	TestIntervalDays   int               `gorm:"not null" json:"test_interval_days"`
-	LastVerifiedAt     *time.Time        `json:"last_verified_at,omitempty"`
-	LifecycleState     string            `gorm:"size:24;not null;index" json:"lifecycle_state"`
-	EvidenceNote       string            `gorm:"type:text;not null" json:"evidence_note"`
-	CreatedAt          time.Time         `gorm:"not null" json:"created_at"`
-	UpdatedAt          time.Time         `gorm:"not null" json:"updated_at"`
-	LastVerificationBy *uint             `json:"last_verification_by,omitempty"`
+	ID                   uint              `gorm:"primaryKey" json:"id"`
+	Name                 string            `gorm:"size:180;not null" json:"name"`
+	SafeguardType        string            `gorm:"size:40;not null;index" json:"safeguard_type"`
+	TargetScenarioID     uint              `gorm:"not null;index:idx_safeguard_target_independence" json:"target_scenario_id"`
+	TargetScenario       DeviationScenario `gorm:"foreignKey:TargetScenarioID" json:"target_scenario,omitempty"`
+	IndependenceKey      string            `gorm:"size:100;not null;index:idx_safeguard_target_independence" json:"independence_key"`
+	Effectiveness        float64           `gorm:"not null" json:"effectiveness"`
+	TestIntervalDays     int               `gorm:"not null" json:"test_interval_days"`
+	LastVerifiedAt       *time.Time        `json:"last_verified_at,omitempty"`
+	LifecycleState       string            `gorm:"size:24;not null;index" json:"lifecycle_state"`
+	EvidenceNote         string            `gorm:"type:text;not null" json:"evidence_note"`
+	CreatedAt            time.Time         `gorm:"not null" json:"created_at"`
+	UpdatedAt            time.Time         `gorm:"not null" json:"updated_at"`
+	LastVerificationBy   *uint             `json:"last_verification_by,omitempty"`
+	SuspensionReason     string            `gorm:"type:text;not null;default:''" json:"suspension_reason"`
+	CompensatingMeasures string            `gorm:"type:text;not null;default:''" json:"compensating_measures"`
+	SuspendedAt          *time.Time        `json:"suspended_at,omitempty"`
+	SuspendedBy          *uint             `json:"suspended_by,omitempty"`
+	PlannedRestoreAt     *time.Time        `json:"planned_restore_at,omitempty"`
+	ResumedAt            *time.Time        `json:"resumed_at,omitempty"`
+	ResumedBy            *uint             `json:"resumed_by,omitempty"`
 }
 
 func (Safeguard) TableName() string { return "safeguards" }
